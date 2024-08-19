@@ -1,0 +1,3490 @@
+substitutions:
+  enc_id: esp32_S3_i2c_devs
+
+esphome:
+  name: "esp32-s3-mcp1"
+  friendly_name: "esp32-s3-mcp1"
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
+    version: 2.0.6
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "zUHhuDTgN9+RtZuIdW5520fudaO4LdmGKgy62q8Wcq8="
+
+ota:
+  - platform: esphome
+    password: "ce80f9eb52be334a50b0f81c797d7f98"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Esp32-C3-Mcp1 Fallback Hotspot"
+    password: "GxHOhXUsJRhs"
+
+captive_portal:
+i2c:
+  - id: bus_0
+    sda: GPIO17
+    scl: GPIO18
+    scan: true 
+  - id: bus_1
+    sda: GPIO4
+    scl: GPIO5  
+    scan: true 
+
+mcp23017:
+  - id: 'mcp23017_hub'
+    i2c_id: bus_0
+    address: 0x20
+
+
+xl9535:
+  - id: xl9535_hub
+    i2c_id: bus_0
+    address: 0x26
+  - id: xl9535_hub_2
+    i2c_id: bus_0
+    address: 0x27
+  - id: xl9535_hub_3
+    i2c_id: bus_1
+    address: 0x20
+
+
+uart:
+  id: uart_2
+  rx_pin: GPIO15
+  tx_pin: GPIO16
+#  baud_rate: 9600
+#  baud_rate: 115200
+  baud_rate: 230400   
+
+sensor:
+  - platform: ina219
+    i2c_id: bus_0
+    address: 0x40
+    shunt_resistance: 0.1 ohm
+    current:
+      name: "${enc_id} INA219 Current-0"
+      id: ina219_current0
+    power:
+      name: "${enc_id} INA219 Power-0"
+      id: ina219_power0
+    bus_voltage:
+      name: "${enc_id} INA219 Bus Voltage-0"
+      id: ina219_bus_v0
+    shunt_voltage:
+      name: "${enc_id} INA219 Shunt Voltage-0"
+      id: ina219_shunt_v0
+    max_voltage: 8.0V
+    max_current: 3.2A
+    update_interval: 120s
+
+  - platform: ina219
+    i2c_id: bus_1
+    address: 0x40
+    shunt_resistance: 0.1 ohm
+    current:
+      name: "${enc_id} INA219 Current-1"
+      id: ina219_current1
+    power:
+      name: "${enc_id} INA219 Power-1"
+      id: ina219_power1
+    bus_voltage:
+      name: "${enc_id} INA219 Bus Voltage-1"
+      id: ina219_bus_v1
+    shunt_voltage:
+      name: "${enc_id} INA219 Shunt Voltage-1"
+      id: ina219_shunt_v1
+    max_voltage: 8.0V
+    max_current: 3.2A
+    update_interval: 120s
+#----------------------------------------------------------
+# - platform: pulse_counter
+  #   pin: GPIO32
+  #   unit_of_measurement: 'L/min'
+  #   accuracy_decimals: 1
+  #   update_interval: 60s
+  #   name: 'Water Meter House'
+  #   filters:
+  #   - lambda: return (x / 27.0);  
+    
+  #   total:
+  #     unit_of_measurement: 'L'
+  #     name: 'Water Meter Total'
+  #     accuracy_decimals: 1
+  #     filters:
+  #     - lambda: return (x / 27.0);
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+  - platform: template
+    name: "${enc_id} Irrigation Time Remaining Sensor"
+    unit_of_measurement: 'Sec'
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).time_remaining_active_valve().value();"
+    update_interval: 2s 
+    accuracy_decimals: 0
+  - platform: template
+    name: "${enc_id} Irrigation Active Valve"
+    id: active_valve
+    accuracy_decimals: 0
+    lambda: |-
+     if (id(${enc_id}_lawn_sprinkler_ctrlr).active_valve().has_value()){
+      auto active_valve = id(${enc_id}_lawn_sprinkler_ctrlr).active_valve().value() + 1;
+      return active_valve;
+      }else{
+        return 0;
+      }
+    update_interval: 5s
+#-------------------------------------------------------------
+#--------------------------------------------------------
+
+#-------------------------------------------------------------
+#--------------------------------------------------------
+
+  - platform: homeassistant
+    id: hw_htr_voltage
+    entity_id: sensor.water_heater_switch_electric_production_v
+
+  - platform: homeassistant
+    id: soil1
+    entity_id: sensor.gw1100b_soil_moisture_1
+
+  - platform: homeassistant
+    id: soil2
+    entity_id: sensor.gw1100b_soil_moisture_2
+
+  - platform: homeassistant
+    id: soil3
+    entity_id: sensor.gw1100b_soil_moisture_3
+  - platform: homeassistant
+    id: soil4
+    entity_id: sensor.gw1100b_soil_moisture_4
+
+  - platform: homeassistant
+    id: soil5
+    entity_id: sensor.gw1100b_soil_moisture_5
+
+  - platform: homeassistant
+    id: soil6
+    entity_id: sensor.gw1100b_soil_moisture_6
+  - platform: homeassistant
+    id: soil7
+    entity_id: sensor.gw1100b_soil_moisture_7
+
+  - platform: homeassistant
+    id: soil8
+    entity_id: sensor.gw1100b_soil_moisture_8
+
+
+
+
+
+#----------------------------------------------------------
+#----------------------------------------------------------------------
+#----------------------------------------------------------------------
+#----------------------------------------------------------
+  - platform: uptime
+    name: ${enc_id} Uptime Sensor
+    id: uptime_formatted
+#    update_interval: 60s
+    on_raw_value:
+      then:
+        - text_sensor.template.publish:
+            id: uptime_human
+            state: !lambda |-
+              int seconds = round(id(uptime_formatted).raw_state);
+              int days = seconds / (24 * 3600);
+              seconds = seconds % (24 * 3600);
+              int hours = seconds / 3600;
+              seconds = seconds % 3600;
+              int minutes = seconds /  60;
+              seconds = seconds % 60;
+              return (
+                (days ? String(days) + "d " : "") +
+                (hours ? String(hours) + "h " : "") +
+                (minutes ? String(minutes) + "m " : "") +
+                (String(seconds) + "s")
+              ).c_str();
+
+#--------------------------------------------------------
+  - platform: wifi_signal
+    name: "${enc_id} WiFi Signal Sensor"
+    id: my_wifi_2
+    update_interval: 60s
+#--------------------------------------------------------
+  - platform: internal_temperature
+    name: "${enc_id}-Internal Temperature"
+    id: internal_cpu
+    unit_of_measurement: "°C"
+    update_interval: 30s
+# ------------------------------------------------------   
+
+# ------------------------------------------------------ 
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      id: myip_2
+      name: ${enc_id} ESP IP Address
+    ssid:
+      id: myssid_2
+      name: ${enc_id} ESP Connected SSID
+
+  - platform: template
+    name: Uptime Human Readable
+    id: uptime_human
+    icon: mdi:clock-start
+#-------------------------------------------------------------
+
+#----------------------------------------------------------------------
+#----------------------------------------------------------
+#----------------------------------------------------------
+  - platform: homeassistant
+    id: weather_temp
+    entity_id: sensor.multi10_temp_raw2
+
+  - platform: homeassistant
+    id: precip_type
+    entity_id: sensor.mysticweather_sensors_precipitation_type
+
+  - platform: homeassistant
+    id: precip
+    entity_id: sensor.multi10_precip_today
+
+  - platform: homeassistant
+    id: wind_speed
+    entity_id: sensor.multi10_windspeed
+
+  - platform: homeassistant
+    id: wind_dir
+    entity_id: sensor.mysticweather_sensors_wind_direction
+
+  - platform: homeassistant
+    id: lightning_distance
+    entity_id: sensor.mysticweather_sensors_lightning_average_distance
+
+  - platform: homeassistant
+    id: lightning_count
+    entity_id: sensor.mysticweather_sensors_lightning_count
+
+  - platform: homeassistant
+    id: humid
+    entity_id: sensor.mysticweather_sensors_humidity
+
+  - platform: homeassistant
+    id: press
+    entity_id: sensor.multi10_press
+
+  - platform: homeassistant
+    id: uv_index
+    entity_id: sensor.mysticweather_sensors_uv_index
+
+  - platform: homeassistant
+    id: dew_pt
+    entity_id: sensor.multi10_dewpt
+
+  - platform: homeassistant
+    id: weather_now
+    entity_id: weather.forecast_mysticweather
+
+  - platform: homeassistant
+    id: multi_num
+    entity_id: sensor.multi10_multiplier
+
+  - platform: homeassistant
+    id: last3
+    entity_id: sensor.mysticweather_sensors_lightning_strikes_last_3_hours
+
+  - platform: homeassistant
+    id: heat_idx
+    entity_id: sensor.mysticweather_sensors_heat_index
+
+  - platform: homeassistant
+    id: forecast_cond1
+    entity_id: sensor.forecast_conditions_d0
+
+  - platform: homeassistant
+    id: forecast_rain1
+    entity_id: sensor.forecast_precip_d0
+
+  - platform: homeassistant
+    id: forecast_cond2
+    entity_id: sensor.forecast_conditions_d1
+
+  - platform: homeassistant
+    id: forecast_rain2
+    entity_id: sensor.forecast_precip_d1
+
+ 
+  - platform: homeassistant
+    id: forecast_cond3
+    entity_id: sensor.forecast_conditions_d2
+
+  - platform: homeassistant
+    id: forecast_rain3
+    entity_id: sensor.forecast_precip_d2
+
+
+  - platform: homeassistant
+    id: forecast_cond4
+    entity_id: sensor.forecast_conditions_d3
+
+  - platform: homeassistant
+    id: forecast_rain4
+    entity_id: sensor.forecast_precip_d3
+   
+
+#----------------------------------------------------------------------
+#----------------------------------------------------------
+
+
+  - platform: homeassistant
+    id: forecast_time_h0
+    entity_id: sensor.forecast_time_h0
+  - platform: homeassistant
+    id: forecast_time_h1
+    entity_id: sensor.forecast_time_h1    
+  - platform: homeassistant
+    id: forecast_time_h2
+    entity_id: sensor.forecast_time_h2
+  - platform: homeassistant
+    id: forecast_time_h3
+    entity_id: sensor.forecast_time_h3
+  - platform: homeassistant
+    id: forecast_time_h4
+    entity_id: sensor.forecast_time_h4
+  - platform: homeassistant
+    id: forecast_time_h5
+    entity_id: sensor.forecast_time_h5
+  - platform: homeassistant
+    id: forecast_time_h6
+    entity_id: sensor.forecast_time_h6 
+
+  - platform: homeassistant
+    id: forecast_cond_h0
+    entity_id: sensor.forecast_conditions_h0
+  - platform: homeassistant
+    id: forecast_cond_h1
+    entity_id: sensor.forecast_conditions_h1 
+  - platform: homeassistant
+    id: forecast_cond_h2
+    entity_id: sensor.forecast_conditions_h2
+  - platform: homeassistant
+    id: forecast_cond_h3
+    entity_id: sensor.forecast_conditions_h3
+  - platform: homeassistant
+    id: forecast_cond_h4
+    entity_id: sensor.forecast_conditions_h4
+  - platform: homeassistant
+    id: forecast_cond_h5
+    entity_id: sensor.forecast_conditions_h5
+  - platform: homeassistant
+    id: forecast_cond_h6
+    entity_id: sensor.forecast_conditions_h6
+
+  - platform: homeassistant
+    id: forecast_temp_h0
+    entity_id: sensor.forecast_temperature_h0
+  - platform: homeassistant
+    id: forecast_temp_h1
+    entity_id: sensor.forecast_temperature_h1 
+  - platform: homeassistant
+    id: forecast_temp_h2
+    entity_id: sensor.forecast_temperature_h2
+  - platform: homeassistant
+    id: forecast_temp_h3
+    entity_id: sensor.forecast_temperature_h3
+  - platform: homeassistant
+    id: forecast_temp_h4
+    entity_id: sensor.forecast_temperature_h4
+  - platform: homeassistant
+    id: forecast_temp_h5
+    entity_id: sensor.forecast_temperature_h5
+  - platform: homeassistant
+    id: forecast_temp_h6
+    entity_id: sensor.forecast_temperature_h6
+
+#----------------------------------------------------------------------
+#----------------------------------------------------------
+
+#----------------------------------------------------------------------
+#----------------------------------------------------------
+
+sprinkler:
+  - id: ${enc_id}_lawn_sprinkler_ctrlr
+    main_switch: "${enc_id}_Lawn Sprinklers"
+    auto_advance_switch: "${enc_id}_Lawn Sprinklers Auto Advance"
+    reverse_switch: "${enc_id}_Lawn Sprinklers Reverse"
+    valve_overlap: 3s
+    pump_pulse_duration: 250ms
+    pump_start_valve_delay: 10s
+    valves:
+      - valve_switch: "${enc_id}_Front Lawn 1"
+        enable_switch: "${enc_id}_Enable Front Lawn 1"
+        pump_on_switch_id: ${enc_id}_dpdt1
+        pump_off_switch_id: ${enc_id}_dpdt1_off
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw0
+      - valve_switch: "${enc_id}_Front Lawn 2"
+        enable_switch: "${enc_id}_Enable Front Lawn 2"
+        pump_on_switch_id: ${enc_id}_dpdt1
+        pump_off_switch_id: ${enc_id}_dpdt1_off
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw1
+      - valve_switch: "${enc_id}_Front Lawn 3"
+        enable_switch: "${enc_id}_Enable Front Lawn 3"
+        pump_on_switch_id: ${enc_id}_dpdt1
+        pump_off_switch_id: ${enc_id}_dpdt1_off
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw2
+#-------------------------------------------------------------
+      - valve_switch: "${enc_id}_Front Lawn 4"
+        enable_switch: "${enc_id}_Enable Front Lawn 4"
+        pump_on_switch_id: ${enc_id}_dpdt1
+        pump_off_switch_id: ${enc_id}_dpdt1_off
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw3
+      - valve_switch: "${enc_id}_Front Lawn 5"
+        enable_switch: "${enc_id}_Enable Front Lawn 5"
+        pump_on_switch_id: ${enc_id}_dpdt1
+        pump_off_switch_id: ${enc_id}_dpdt1_off
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw4
+      - valve_switch: "${enc_id}_Front Lawn 6"
+        enable_switch: "${enc_id}_Enable Front Lawn 6"
+        pump_on_switch_id: ${enc_id}_dpdt1
+        pump_off_switch_id: ${enc_id}_dpdt1_off
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw5
+#-------------------------------------------------------------
+      - valve_switch: "${enc_id}_Front Lawn 7"
+        enable_switch: "${enc_id}_Enable Front Lawn 7"
+        pump_on_switch_id: ${enc_id}_dpdt2
+        pump_off_switch_id: ${enc_id}_dpdt2_off
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw6
+      - valve_switch: "${enc_id}_Front Lawn 8"
+        enable_switch: "${enc_id}_Enable Front Lawn 8"
+        pump_on_switch_id: ${enc_id}_dpdt2
+        pump_off_switch_id: ${enc_id}_dpdt2_off
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw7
+      - valve_switch: "${enc_id}_Front Lawn 9"
+        enable_switch: "${enc_id}_Enable Front Lawn 9"
+        pump_on_switch_id: ${enc_id}_dpdt2
+        pump_off_switch_id: ${enc_id}_dpdt2_off
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw8
+#-------------------------------------------------------------
+      - valve_switch: "${enc_id}_Front Lawn 10"
+        enable_switch: "${enc_id}_Enable Front Lawn 10"
+        pump_on_switch_id: ${enc_id}_dpdt1
+        pump_off_switch_id: ${enc_id}_dpdt1_off
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw9
+      - valve_switch: "${enc_id}_Front Lawn 11"
+        enable_switch: "${enc_id}_Enable Front Lawn 11"
+        pump_on_switch_id: ${enc_id}_dpdt1
+        pump_off_switch_id: ${enc_id}_dpdt1_off
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw10
+      - valve_switch: "${enc_id}_Front Lawn 12"
+        enable_switch: "${enc_id}_Enable Front Lawn 12"
+        pump_on_switch_id: ${enc_id}_dpdt1
+        pump_off_switch_id: ${enc_id}_dpdt1_off
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw11
+#-------------------------------------------------------------
+      - valve_switch: "${enc_id}_Front Lawn 13"
+        enable_switch: "${enc_id}_Enable Front Lawn 13"
+        pump_on_switch_id: ${enc_id}_dpdt1
+        pump_off_switch_id: ${enc_id}_dpdt1_off
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw12
+      - valve_switch: "${enc_id}_Front Lawn 14"
+        enable_switch: "${enc_id}_Enable Front Lawn 14"
+        pump_on_switch_id: ${enc_id}_dpdt1
+        pump_off_switch_id: ${enc_id}_dpdt1_off
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw13
+      - valve_switch: "${enc_id}_Front Lawn 15"
+        enable_switch: "${enc_id}_Enable Front Lawn 15"
+        pump_on_switch_id: ${enc_id}_dpdt1
+        pump_off_switch_id: ${enc_id}_dpdt1_off
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw14
+#-------------------------------------------------------------
+      - valve_switch: "${enc_id}_Front Lawn 16"
+        enable_switch: "${enc_id}_Enable Front Lawn 16"
+        pump_on_switch_id: ${enc_id}_dpdt1
+        pump_off_switch_id: ${enc_id}_dpdt1_off
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw15
+      - valve_switch: "${enc_id}_Front Lawn 17"
+        enable_switch: "${enc_id}_Enable Front Lawn 17"
+        pump_switch_id: ${enc_id}_dpdt1
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw16
+      - valve_switch: "${enc_id}_Front Lawn 18"
+        enable_switch: "${enc_id}_Enable Front Lawn 18"
+        pump_switch_id: ${enc_id}_dpdt1
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw17
+
+#-------------------------------------------------------------
+      - valve_switch: "${enc_id}_Front Lawn 19"
+        enable_switch: "${enc_id}_Enable Front Lawn 19"
+        pump_switch_id: ${enc_id}_dpdt1
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw18
+      - valve_switch: "${enc_id}_Front Lawn 20"
+        enable_switch: "${enc_id}_Enable Front Lawn 20"
+        pump_switch_id: ${enc_id}_dpdt1
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw19
+      - valve_switch: "${enc_id}_Front Lawn 21"
+        enable_switch: "${enc_id}_Enable Front Lawn 21"
+        pump_switch_id: ${enc_id}_dpdt1
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw20
+
+#-------------------------------------------------------------
+      - valve_switch: "${enc_id}_Front Lawn 22"
+        enable_switch: "${enc_id}_Enable Front Lawn 22"
+        pump_switch_id: ${enc_id}_dpdt1
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw21
+      - valve_switch: "${enc_id}_Front Lawn 23"
+        enable_switch: "${enc_id}_Enable Front Lawn 23"
+        pump_switch_id: ${enc_id}_dpdt1
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw22
+      - valve_switch: "${enc_id}_Front Lawn 24"
+        enable_switch: "${enc_id}_Enable Front Lawn 24"
+        pump_switch_id: ${enc_id}_dpdt1
+        run_duration: 900s
+        valve_switch_id: lawn_sprinkler_valve_sw23
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+# Configuration to set multiplier via number
+number:
+  - platform: template
+    id: ${enc_id}_sprinkler_ctrlr_multiplier
+    name: "${enc_id}_Sprinkler Controller Multiplier"
+    min_value: 1.0
+    max_value: 5.0
+    step: 1.0
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).multiplier();"
+    set_action:
+      - sprinkler.set_multiplier:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          multiplier: !lambda 'return x;'
+    update_interval: 5s
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#----------------------------------------------------------------------
+#-------------------------------------------------
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_1
+    name: "${enc_id} Sprinkler Valve Duration 1"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    update_interval: 5s
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(0);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 0
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_2
+    name: "${enc_id} Sprinkler Valve Duration 2"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(1);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 1
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_3
+    name: "${enc_id} Sprinkler Valve Duration 3"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(2);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 2
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_4
+    name: "${enc_id} Sprinkler Valve Duration 4"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(3);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 3
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_5
+    name: "${enc_id} Sprinkler Valve Duration 5"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(4);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 4
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_6
+    name: "${enc_id} Sprinkler Valve Duration 6"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(5);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 5
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_7
+    name: "${enc_id} Sprinkler Valve Duration 7"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(6);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 6
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_8
+    name: "${enc_id} Sprinkler Valve Duration 8"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(7);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 7
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_9
+    name: "${enc_id} Sprinkler Valve Duration 9"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(8);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 8
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_10
+    name: "${enc_id} Sprinkler Valve Duration 10"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(9);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 9
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_11
+    name: "${enc_id} Sprinkler Valve Duration 11"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(10);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 10
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_12
+    name: "${enc_id} Sprinkler Valve Duration 12"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(11);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 11
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_13
+    name: "${enc_id} Sprinkler Valve Duration 13"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(12);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 12
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_14
+    name: "${enc_id} Sprinkler Valve Duration 14"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(13);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 13
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_15
+    name: "${enc_id} Sprinkler Valve Duration 15"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(14);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 14
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_16
+    name: "${enc_id} Sprinkler Valve Duration 16"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(15);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 15
+          run_duration: !lambda 'return x;'
+
+
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_17
+    name: "${enc_id} Sprinkler Valve Duration 17"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(16);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 16
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_18
+    name: "${enc_id} Sprinkler Valve Duration 18"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(17);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 17
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_19
+    name: "${enc_id} Sprinkler Valve Duration 19"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(18);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 18
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_20
+    name: "${enc_id} Sprinkler Valve Duration 20"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(19);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 19
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_21
+    name: "${enc_id} Sprinkler Valve Duration 21"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(20);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 20
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_22
+    name: "${enc_id} Sprinkler Valve Duration 22"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(21);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 21
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_23
+    name: "${enc_id} Sprinkler Valve Duration 23"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(22);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 22
+          run_duration: !lambda 'return x;'
+
+  - platform: template
+    id: sprinkler_ctrlr_duration_v_24
+    name: "${enc_id} Sprinkler Valve Duration 24"
+    min_value: 300
+    max_value: 1200
+    step: 60
+    lambda: "return id(${enc_id}_lawn_sprinkler_ctrlr).valve_run_duration(23);"
+    set_action:
+      - sprinkler.set_valve_run_duration:
+          id: ${enc_id}_lawn_sprinkler_ctrlr
+          valve_number: 23
+          run_duration: !lambda 'return x;'
+
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+binary_sensor:
+#-------------------------------------------------------------
+  - platform: gpio
+    name: "${enc_id}_MV_Off" 
+    id: mv_off   
+    publish_initial_state: true
+    internal: false
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 8
+      mode:
+        input: true
+        pullup: true
+      inverted: true     
+  - platform: gpio
+    name: "${enc_id}_MV_On" 
+    id: mv_on   
+    publish_initial_state: true
+    internal: false
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 9
+      mode:
+        input: true
+        pullup: true
+      inverted: true     
+
+#-------------------------------------------------------------
+  - platform: gpio
+    name: "${enc_id}_IRV_Off" 
+    id: irv_off   
+    publish_initial_state: true
+    internal: false
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 10
+      mode:
+        input: true
+        pullup: true
+      inverted: true     
+  - platform: gpio
+    name: "${enc_id}_IRV_On"
+    id: irv_on    
+    publish_initial_state: true
+    internal: false
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 11
+      mode:
+        input: true
+        pullup: true
+      inverted: true     
+#-------------------------------------------------------------
+
+  - platform: gpio
+    name: "${enc_id}_HWV_Off" 
+    id: hwv_off      
+    publish_initial_state: true
+    internal: false
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 12
+      mode:
+        input: true
+        pullup: true
+      inverted: true     
+  - platform: gpio
+    name: "${enc_id}_HWV_On"  
+    id: hwv_on  
+    publish_initial_state: true
+    internal: false
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 13
+      mode:
+        input: true
+        pullup: true
+      inverted: true     
+#-------------------------------------------------------------
+
+  - platform: gpio
+    name: "${enc_id}_LVH_Off" 
+    id: lvh_off      
+    publish_initial_state: true
+    internal: false
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 14
+      mode:
+        input: true
+        pullup: true
+      inverted: true     
+
+  - platform: gpio
+    name: "${enc_id}_LVH_On"
+    id: lvh_on       
+    publish_initial_state: true
+    internal: false
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 7
+      mode:
+        input: true
+        pullup: true
+      inverted: true     
+#-------------------------------------------------------------
+  - platform: gpio
+    name: "${enc_id}_LVC_Off"  
+    id: lvc_off  
+    publish_initial_state: true
+    internal: false
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 6
+      mode:
+        input: true
+        pullup: true
+      inverted: true     
+  - platform: gpio
+    name: "${enc_id}_LVC_On"
+    id: lvc_on    
+    publish_initial_state: true
+    internal: false
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 5
+      mode:
+        input: true
+        pullup: true
+      inverted: true     
+#-------------------------------------------------------------
+  - platform: gpio
+    name: "${enc_id}_SMV1_Off"
+    id: smv1_off    
+    publish_initial_state: true
+    internal: false
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 4
+      mode:
+        input: true
+        pullup: true
+      inverted: true     
+  - platform: gpio
+    name: "${enc_id}_SMV1_On"
+    id: smv1_on  
+    publish_initial_state: true
+    internal: false
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 3
+      mode:
+        input: true
+        pullup: true
+      inverted: true     
+#-------------------------------------------------------------
+  - platform: gpio
+    name: "${enc_id}_SMV2_Off" 
+    id: smv2_off   
+    publish_initial_state: true
+    internal: false
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 2
+      mode:
+        input: true
+        pullup: true
+      inverted: true     
+
+  - platform: gpio
+    name: "${enc_id}_SMV2_On"
+    id: smv2_on    
+    publish_initial_state: true
+    internal: false
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 1
+      mode:
+        input: true
+        pullup: true
+      inverted: true     
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+  - platform: homeassistant
+    name: "${enc_id} Master Bath Flood"
+    id: mas_bath_flood
+    entity_id: binary_sensor.z_wave_wireless_flood_freeze_sensor_sensor_state_water
+
+  - platform: homeassistant
+    name: "${enc_id} Wtr Htr Flood"
+    id: wtr_htr_flood
+    entity_id: binary_sensor.water_heater_flood_detector_sensor_state_water_2
+
+  - platform: homeassistant
+    name: "${enc_id} Kit Sink Flood"
+    id: kit_sink_flood
+    entity_id: binary_sensor.kitchen_sink_leak_detector_sensor_state_water_2
+
+  - platform: homeassistant
+    name: "${enc_id} Guest Bath Flood"
+    id: guest_bath_flood
+    entity_id: binary_sensor.guest_bath_leak_sensor_sensor_state_water_2
+
+  - platform: homeassistant
+    name: "${enc_id} Guest Sink Flood"
+    id: guest_bath_sink_flood
+    entity_id: binary_sensor.gbr_sink_leak_detector_sensor_state_water_2
+
+  - platform: homeassistant
+    name: "${enc_id} Master Sink Flood"
+    id: mas_bath_sink_flood
+    entity_id: binary_sensor.mbr_sink_leak_detector_sensor_state_water_2
+#---------------------------------------------------------------------------
+#---------------------------------------------------------------------------
+  - platform: homeassistant
+    name: "${enc_id} Insteon Master Bath Sink"
+    id: ins_mas_bath_sink
+    entity_id: binary_sensor.masterbathsink_dry
+
+  - platform: homeassistant
+    name: "${enc_id} Insteon Master Bath"
+    id: ins_mas_bath
+    entity_id: binary_sensor.mas_bath_leak_dry
+
+  - platform: homeassistant
+    name: "${enc_id} Insteon Kitchen Sink"
+    id: ins_kit_sink
+    entity_id: binary_sensor.kitchen_sink_dry
+
+  - platform: homeassistant
+    name: "${enc_id} Insteon Guest Bath"
+    id: ins_guest_bath
+    entity_id: binary_sensor.guestbath_dry
+
+  - platform: homeassistant
+    name: "${enc_id} Insteon Refrigerator"
+    id: ins_fridge
+    entity_id: binary_sensor.fridgeleak_dry
+
+  - platform: homeassistant
+    name: "${enc_id} Insteon Dishwasher"
+    id: ins_dishwasher
+    entity_id: binary_sensor.dishwasher_dry
+
+  - platform: homeassistant
+    name: "${enc_id} Insteon Water Htr "
+    id: ins_wtr_htr
+    entity_id: binary_sensor.water_heater_dry
+
+  - platform: homeassistant
+    id: ins_laundry
+    entity_id: binary_sensor.laundry_dry
+
+  - platform: homeassistant
+    id: ins_guestbathsink
+    entity_id: binary_sensor.guestbathsink_dry
+#--------------------------------------------------------
+#----------------------------------------------------------
+#----------------------------------------------------------
+  - platform: homeassistant
+    id: hw_htr_switch
+    entity_id: switch.direct_wire_40a_outdoor_switch_500s
+
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+  - platform: nextion
+    page_id: 0
+    component_id: 48
+    id: pg_one
+    on_press:
+      then:
+        - lambda: |-
+            id(nextion_page_id)=1;
+            id(nextion1).goto_page("page1");
+        - component.update: nextion1
+
+  - platform: nextion
+    page_id: 1
+    component_id: 33
+    id: pg_zero
+    on_press:
+      then:
+        - lambda: |-
+            id(nextion_page_id)=0;
+            id(nextion1).goto_page("page0");
+        - component.update: nextion1
+
+  - platform: nextion
+    page_id: 0
+    component_id: 36  
+    id: main_toggle
+    on_press:
+      then:
+        - logger.log: "Main Valve On was touched"
+        - lambda: |- 
+            if (id(s1_1).state) { 
+              id(s1_1).turn_off();
+              id(s2_1).turn_off();
+              id(${enc_id}_dpdt3).publish_state(false);
+              
+            }else{
+              id(s1_1).turn_on();
+              id(s2_1).turn_on();  
+              id(${enc_id}_dpdt3).publish_state(true);
+            }
+
+
+  - platform: nextion
+    page_id: 0
+    component_id: 34    
+    id: irrig_toggle
+    on_press:
+      then:
+        - logger.log: "Irrig Valve On was touched"
+        - lambda: |- 
+            if (id(s1_2).state) { 
+              id(s1_2).turn_off();
+              id(s2_2).turn_off();              
+              id(${enc_id}_dpdt4).publish_state(false);
+            }else{
+              id(s1_2).turn_on();
+              id(s2_2).turn_on();  
+              id(${enc_id}_dpdt4).publish_state(true);
+            }
+
+
+  - platform: nextion
+    page_id: 0
+    component_id: 35   
+    id: hw_toggle
+    on_press:
+      then:
+        - logger.log: "HW Valve On was touched"
+        - lambda: |- 
+            if (id(s1_3).state) { 
+              id(s1_3).turn_off();
+              id(s2_3).turn_off();              
+              id(${enc_id}_dpdt5).publish_state(false);
+            }else{
+              id(s1_3).turn_on();
+              id(s2_3).turn_on();  
+              id(${enc_id}_dpdt5).publish_state(true);
+            }
+
+
+  - platform: nextion
+    page_id: 0
+    component_id: 68 
+    id: Wash_cw_toggle
+    on_press:
+      then:
+        - logger.log: "Washer CW Valve On was touched"
+        - lambda: |- 
+            if (id(s1_5).state) { 
+              id(s1_5).turn_off();
+              id(s2_5).turn_off();              
+              id(${enc_id}_dpdt7).publish_state(false);
+            }else{
+              id(s1_5).turn_on();
+              id(s2_5).turn_on();  
+              id(${enc_id}_dpdt7).publish_state(true);
+            }
+
+
+  - platform: nextion
+    page_id: 0
+    component_id: 67 
+    id: wash_hw_toggle
+    on_press:
+      then:
+        - logger.log: "Washer HW Valve On was touched"
+        - lambda: |- 
+            if (id(s1_4).state) { 
+              id(s1_4).turn_off();
+              id(s2_4).turn_off();              
+              id(${enc_id}_dpdt6).publish_state(false);
+            }else{
+              id(s1_4).turn_on();
+              id(s2_4).turn_on();  
+              id(${enc_id}_dpdt6).publish_state(true);
+            }
+
+
+  - platform: nextion
+    page_id: 0
+    component_id: 49   
+    id: hw_pwr_toggle
+    on_press:
+      then:
+      - homeassistant.service:
+          service: switch.toggle
+          data:
+            entity_id: switch.direct_wire_40a_outdoor_switch_500s
+
+  - platform: nextion
+    page_id: 0
+    component_id: 59  
+    id: spr_start
+    on_press:
+      - logger.log: "Sprinkler Cycle On was touched"
+      - lambda: |- 
+
+               if (id(active_valve).state) {                
+                }else{
+                id(${enc_id}_lawn_sprinkler_ctrlr).start_full_cycle();
+               }
+
+
+
+  - platform: nextion
+    page_id: 0
+    component_id: 94    
+    id: num_left
+    on_release:
+      then:
+        - number.increment: ${enc_id}_sprinkler_ctrlr_multiplier
+
+
+  - platform: nextion
+    page_id: 0
+    component_id: 93  
+    id: num_right
+    on_release:
+      then:
+        - number.decrement: ${enc_id}_sprinkler_ctrlr_multiplier
+
+
+
+
+
+  - platform: nextion
+    page_id: 1
+    component_id: 17
+    component_name: page1.Z1 # Only needed to support changing colors
+    id: z1_enable
+    on_press:
+      - logger.log: "Z1 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(0)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 15
+    component_name: page1.Z2 # Only needed to support changing colors
+    id: z2_enable
+    on_press:
+      - logger.log: "Z2 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(1)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 16
+    component_name: page1.Z3 # Only needed to support changing colors
+    id: z3_enable
+    on_press:
+      - logger.log: "Z3 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(2)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 32
+    component_name: page1.Z4 # Only needed to support changing colors
+    id: z4_enable
+    on_press:
+      - logger.log: "Z4 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(3)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 27
+    component_name: page1.Z5 # Only needed to support changing colors
+    id: z5_enable
+    on_press:
+      - logger.log: "Z5 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(4)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 26
+    component_name: page1.Z6 # Only needed to support changing colors
+    id: z6_enable
+    on_press:
+      - logger.log: "Z6 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(5)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 25
+    component_name: page1.Z7 # Only needed to support changing colors
+    id: z7_enable
+    on_press:
+      - logger.log: "Z7 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(6)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 24
+    component_name: page1.Z8 # Only needed to support changing colors
+    id: z8_enable
+    on_press:
+      - logger.log: "Z8 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(7)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 23
+    component_name: page1.Z9 # Only needed to support changing colors
+    id: z9_enable
+    on_press:
+      - logger.log: "Z9 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(8)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 22
+    component_name: page1.Z10 # Only needed to support changing colors
+    id: z10_enable
+    on_press:
+      - logger.log: "Z10 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(9)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 21
+    component_name: page1.Z11 # Only needed to support changing colors
+    id: z11_enable
+    on_press:
+      - logger.log: "Z11 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(10)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 20
+    component_name: page1.Z12 # Only needed to support changing colors
+    id: z12_enable
+    on_press:
+      - logger.log: "Z12 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(11)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 19
+    component_name: page1.Z13 # Only needed to support changing colors
+    id: z13_enable
+    on_press:
+      - logger.log: "Z13 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(12)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 18
+    component_name: page1.Z14 # Only needed to support changing colors
+    id: z14_enable
+    on_press:
+      - logger.log: "Z14 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(13)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 29
+    component_name: page1.Z15 # Only needed to support changing colors
+    id: z15_enable
+    on_press:
+      - logger.log: "Z15 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(14)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 28
+    component_name: page1.Z16 # Only needed to support changing colors
+    id: z16_enable
+    on_press:
+      - logger.log: "Z16 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(15)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 31
+    component_name: page1.DR1 # Only needed to support changing colors
+    id: dr1_enable
+    on_press:
+      - logger.log: "DR1 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(16)->toggle();
+               }
+
+  - platform: nextion
+    page_id: 1
+    component_id: 30
+    component_name: page1.DR2 # Only needed to support changing colors
+    id: dr2_enable
+    on_press:
+      - logger.log: "DR2 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(17)->toggle();
+               }
+
+
+  - platform: nextion
+    page_id: 1
+    component_id: 37
+    component_name: page1.z19 # Only needed to support changing colors
+    id: z19_enable
+    on_press:
+      - logger.log: "Z19 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(18)->toggle();
+               }
+
+
+  - platform: nextion
+    page_id: 1
+    component_id: 36
+    component_name: page1.z20 # Only needed to support changing colors
+    id: z20_enable
+    on_press:
+      - logger.log: "Z20 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(19)->toggle();
+               }
+
+
+  - platform: nextion
+    page_id: 1
+    component_id: 39
+    component_name: page1.z21 # Only needed to support changing colors
+    id: z21_enable
+    on_press:
+      - logger.log: "Z21 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(20)->toggle();
+               }
+
+
+  - platform: nextion
+    page_id: 1
+    component_id: 38
+    component_name: page1.z22 # Only needed to support changing colors
+    id: z22_enable
+    on_press:
+      - logger.log: "Z22 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(21)->toggle();
+               }
+
+
+  - platform: nextion
+    page_id: 1
+    component_id: 41
+    component_name: page1.z23 # Only needed to support changing colors
+    id: z23_enable
+    on_press:
+      - logger.log: "Z23 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(22)->toggle();
+               }
+
+
+  - platform: nextion
+    page_id: 1
+    component_id: 40
+    component_name: page1.z24 # Only needed to support changing colors
+    id: z24_enable
+    on_press:
+      - logger.log: "Z24 Enable was touched"
+      - lambda: |- 
+               if (id(active_valve).state) {
+                 }else{
+                   id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(23)->toggle();
+               }
+
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+ #Individual outputs
+switch:
+
+
+  - platform: template
+    id: ${enc_id}_dpdt3
+    name: "${enc_id} Main Relay"
+    turn_on_action: 
+      then:
+      - switch.turn_on: s1_1
+      - switch.turn_on: s2_1
+    turn_off_action: 
+      then:
+      - switch.turn_off: s1_1
+      - switch.turn_off: s2_1
+
+  - platform: template
+    id: ${enc_id}_dpdt4
+    name: "${enc_id} Irrigation Relay"
+    turn_on_action: 
+      then:
+      - switch.turn_on: s1_2
+      - switch.turn_on: s2_2
+    turn_off_action: 
+      then:
+      - switch.turn_off: s1_2
+      - switch.turn_off: s2_2
+
+  - platform: template
+    id: ${enc_id}_dpdt5
+    name: "${enc_id} Hot Water Relay"
+    turn_on_action: 
+      then:
+      - switch.turn_on: s1_3
+      - switch.turn_on: s2_3
+    turn_off_action: 
+      then:
+      - switch.turn_off: s1_3
+      - switch.turn_off: s2_3
+
+
+  - platform: template
+    id: ${enc_id}_dpdt6
+    name: "${enc_id} Laundry Hot Valve"
+    turn_on_action: 
+      then:
+      - switch.turn_on: s1_4
+      - switch.turn_on: s2_4
+    turn_off_action: 
+      then:
+      - switch.turn_off: s1_4
+      - switch.turn_off: s2_4
+
+
+  - platform: template
+    id: ${enc_id}_dpdt7
+    name: "${enc_id} Laundry Cold Valve"
+    turn_on_action: 
+      then:
+      - switch.turn_on: s1_5
+      - switch.turn_on: s2_5
+    turn_off_action: 
+      then:
+      - switch.turn_off: s1_5
+      - switch.turn_off: s2_5
+
+#----------------------------------------------
+  - platform: template
+    id: ${enc_id}_dpdt1_off
+    name: "${enc_id} Sprinkler Main Valve 1 Off"
+    turn_on_action: 
+      then:
+      - switch.turn_off: s1_6
+      - switch.turn_off: s2_6
+
+
+  - platform: template
+    id: ${enc_id}_dpdt1
+    name: "${enc_id} Sprinkler Main Valve 1"
+    turn_on_action: 
+      then:
+      - switch.turn_on: s1_6
+      - switch.turn_on: s2_6
+    turn_off_action: 
+      then:
+      - switch.turn_off: s1_6
+      - switch.turn_off: s2_6
+#----------------------------------------------
+  - platform: template
+    id: ${enc_id}_dpdt2_off
+    name: "${enc_id} Sprinkler Main Valve 2 Off"
+    turn_on_action: 
+      then:
+      - switch.turn_off: s1_7
+      - switch.turn_off: s2_7
+
+  - platform: template
+    id: ${enc_id}_dpdt2
+    name: "${enc_id} Sprinkler Main Valve 2"
+    turn_on_action: 
+      then:
+      - switch.turn_on: s1_7
+      - switch.turn_on: s2_7
+    turn_off_action: 
+      then:
+      - switch.turn_off: s1_7
+      - switch.turn_off: s2_7
+
+#----------------------------------------------
+#----------------------------------------------- 
+
+
+#------------------------------------ 
+  - platform: gpio
+    id: s1_1
+    pin:
+      xl9535: xl9535_hub_2
+      number: 0
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    id: s2_1
+    pin:
+      xl9535: xl9535_hub_2
+      number: 1
+      mode:
+        output: true
+      inverted: false
+#-----------------------------------------
+  - platform: gpio
+    id: s1_2
+    pin:
+      xl9535: xl9535_hub_2
+      number: 2
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    id: s2_2
+    pin:
+      xl9535: xl9535_hub_2
+      number: 3
+      mode:
+        output: true
+      inverted: false
+#-----------------------------------------
+  - platform: gpio
+    id: s1_3
+    pin:
+      xl9535: xl9535_hub_2
+      number: 4
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    id: s2_3
+    pin:
+      xl9535: xl9535_hub_2
+      number: 5
+      mode:
+        output: true
+      inverted: false
+#-----------------------------------------
+  - platform: gpio
+    id: s1_4
+    pin:
+      xl9535: xl9535_hub_2
+      number: 6
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    id: s2_4
+    pin:
+      xl9535: xl9535_hub_2
+      number: 7
+      mode:
+        output: true
+      inverted: false
+#-----------------------------------------
+  - platform: gpio
+    id: s1_5
+    pin:
+      xl9535: xl9535_hub_2
+      number: 10
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    id: s2_5
+    pin:
+      xl9535: xl9535_hub_2
+      number: 11
+      mode:
+        output: true
+      inverted: false
+#-----------------------------------------
+  - platform: gpio
+    id: s1_6
+    pin:
+      xl9535: xl9535_hub_2
+      number: 12
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    id: s2_6
+    pin:
+      xl9535: xl9535_hub_2
+      number: 13
+      mode:
+        output: true
+      inverted: false
+#-----------------------------------------
+  - platform: gpio
+    id: s1_7
+    pin:
+      xl9535: xl9535_hub_2
+      number: 14
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    id: s2_7
+    pin:
+      xl9535: xl9535_hub_2
+      number: 15
+      mode:
+        output: true
+      inverted: false
+#-----------------------------------------
+#-----------------------------------------
+#-----------------------------------------
+  - platform: gpio
+    name: "${enc_id} Valve 1"
+    id: lawn_sprinkler_valve_sw0
+    pin:
+      xl9535: xl9535_hub
+      number: 0
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 2"
+    id: lawn_sprinkler_valve_sw1
+    pin:
+      xl9535: xl9535_hub
+      number: 1
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 3"
+    id: lawn_sprinkler_valve_sw2
+    pin:
+      xl9535: xl9535_hub
+      number: 2
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 4"
+    id: lawn_sprinkler_valve_sw3
+    pin:
+      xl9535: xl9535_hub
+      number: 3
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    name: "${enc_id} Valve 5"
+    id: lawn_sprinkler_valve_sw4
+    pin:
+      xl9535: xl9535_hub
+      number: 4
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 6"
+    id: lawn_sprinkler_valve_sw5
+    pin:
+      xl9535: xl9535_hub
+      number: 5
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 7"
+    id: lawn_sprinkler_valve_sw6
+    pin:
+      xl9535: xl9535_hub
+      number: 6
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 8"
+    id: lawn_sprinkler_valve_sw7
+    pin:
+      xl9535: xl9535_hub
+      number: 7
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 9"
+    id: lawn_sprinkler_valve_sw8
+    pin:
+      xl9535: xl9535_hub
+      number: 10
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 10"
+    id: lawn_sprinkler_valve_sw9
+    pin:
+      xl9535: xl9535_hub
+      number: 11
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 11"
+    id: lawn_sprinkler_valve_sw10
+    pin:
+      xl9535: xl9535_hub
+      number: 12
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 12"
+    id: lawn_sprinkler_valve_sw11
+    pin:
+      xl9535: xl9535_hub
+      number: 13
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    name: "${enc_id} Valve 13"
+    id: lawn_sprinkler_valve_sw12
+    pin:
+      xl9535: xl9535_hub
+      number: 14
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 14"
+    id: lawn_sprinkler_valve_sw13
+    pin:
+      xl9535: xl9535_hub
+      number: 15
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 15"
+    id: lawn_sprinkler_valve_sw14
+    pin:
+      xl9535: xl9535_hub
+      number: 16
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 16"
+    id: lawn_sprinkler_valve_sw15
+    pin:
+      xl9535: xl9535_hub
+      number: 17
+      mode:
+        output: true
+      inverted: false      
+#-----------------------------------------
+#-----------------------------------------
+#-----------------------------------------
+
+
+  - platform: gpio
+    name: "${enc_id} Valve 17"
+    id: lawn_sprinkler_valve_sw16
+    pin:
+      xl9535: xl9535_hub_3
+      number: 0
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 18"
+    id: lawn_sprinkler_valve_sw17
+    pin:
+      xl9535: xl9535_hub_3
+      number: 1
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 19"
+    id: lawn_sprinkler_valve_sw18
+    pin:
+      xl9535: xl9535_hub_3
+      number: 2
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 20"
+    id: lawn_sprinkler_valve_sw19
+    pin:
+      xl9535: xl9535_hub_3
+      number: 3
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    name: "${enc_id} Valve 21"
+    id: lawn_sprinkler_valve_sw20
+    pin:
+      xl9535: xl9535_hub_3
+      number: 4
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 22"
+    id: lawn_sprinkler_valve_sw21
+    pin:
+      xl9535: xl9535_hub_3
+      number: 5
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 23"
+    id: lawn_sprinkler_valve_sw22
+    pin:
+      xl9535: xl9535_hub_3
+      number: 6
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "${enc_id} Valve 24"
+    id: lawn_sprinkler_valve_sw23
+    pin:
+      xl9535: xl9535_hub_3
+      number: 7
+      mode:
+        output: true
+      inverted: false  
+
+#-----------------------------------------
+#-----------------------------------------
+#-----------------------------------------
+#-----------------------------------------
+#-----------------------------------------
+globals:
+  - id: nextion_page_id
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: leak_detected_1
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: leak_detected_2
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: leak_detected_3
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: leak_detected_4
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: leak_detected_5
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: leak_detected_6
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: leak_detected_7
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: leak_detected_8
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: leak_detected_9
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: leak_detected_10
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: leak_detected_11
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: leak_detected_12
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: leak_detected_13
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+
+  - id: leak_detected_14
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: leak_detected_15
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: active_valve_name
+    type: std::string
+    restore_value: no
+    initial_value: '"Empty"'
+
+  - id: en_valve_num
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: en_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+
+  - id: en_status_e
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: en_status_d
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+
+ 
+#-------------------------------------------------
+#------------------------------------------------
+#-------------------------------------------------
+#------------------------------------------------
+display:
+  - platform: nextion
+    id: nextion1
+    uart_id: uart_2
+
+    lambda: |-
+
+         if (id(nextion_page_id) == 0) {
+
+
+          auto soil_sensor_1 = int(id(soil1).state * 1.8);
+          auto soil_sensor_2 = int(id(soil2).state * 1.8);
+          auto soil_sensor_3 = int(id(soil3).state * 1.8);
+          auto soil_sensor_4 = int(id(soil4).state * 1.8);
+          auto soil_sensor_5 = int(id(soil5).state * 1.8);
+          auto soil_sensor_6 = int(id(soil6).state * 1.8);
+          auto soil_sensor_7 = int(id(soil7).state * 1.8);
+          auto soil_sensor_8 = int(id(soil8).state * 1.8);
+
+          it.set_component_value("zsoil7", soil_sensor_1);
+          it.set_component_value("zsoil8", soil_sensor_2);
+          it.set_component_value("zsoil5", soil_sensor_3);
+          it.set_component_value("zsoil6", soil_sensor_4);
+          it.set_component_value("zsoil1", soil_sensor_5);
+          it.set_component_value("zsoil2", soil_sensor_6);
+          it.set_component_value("zsoil3", soil_sensor_7);
+          it.set_component_value("zsoil4", soil_sensor_8);
+
+
+          it.set_component_text_printf("tsoil7", "S1: %.f%%",id(soil1).state);
+          it.set_component_text_printf("tsoil8", "S2: %.f%%",id(soil2).state);
+          it.set_component_text_printf("tsoil5", "S3: %.f%%",id(soil3).state);
+          it.set_component_text_printf("tsoil6", "S4: %.f%%",id(soil4).state);
+          it.set_component_text_printf("tsoil1", "S5: %.f%%",id(soil5).state);
+          it.set_component_text_printf("tsoil2", "S6: %.f%%",id(soil6).state);
+          it.set_component_text_printf("tsoil3", "S7: %.f%%",id(soil7).state);
+          it.set_component_text_printf("tsoil4", "S8: %.f%%",id(soil8).state);
+
+
+
+
+
+
+          it.set_component_text_printf("tmultiple", "%.f",id( ${enc_id}_sprinkler_ctrlr_multiplier).state);
+          it.set_component_text("t5", "Cycle Multiple");
+          it.set_component_font_color("tmultiple", "43168");
+
+          it.set_component_font_color("tToday", "43168");
+          it.set_component_font_color("tcurrent", "43168");
+          it.set_component_text_printf("tTemp", "%s\xB0",id(weather_temp).state.c_str()); 
+          it.set_component_text_printf("tHumidity", "Humidity: %s%%",id(humid).state.c_str());
+          it.set_component_text_printf("theatIdx", "Feels Like: %s\xB0",id(heat_idx).state.c_str());
+          it.set_component_text_printf("tPressure", "Pressuire:%s inHg",id(press).state.c_str());
+          it.set_component_text_printf("tUV", "UV Index: %s ",id(uv_index).state.c_str());
+
+          it.set_component_text_printf("sig", "Signal:%.1f dbm", id(my_wifi_2).state);  
+          it.set_component_text_printf("IP", "IP:%s", id(myip_2).state.c_str());
+               
+
+          it.set_component_text_printf("txtUptime", "Uptime: %s", id(uptime_human).state.c_str());
+          it.set_component_text_printf("txt5v", "5V Bus: %.3f", id(ina219_bus_v1).state);
+          it.set_component_text_printf("txt12v", "12V Bus: %.3f", id(ina219_bus_v0).state);
+
+          it.set_component_text_printf("tToday", "Today:\x20 Rain: %s in . Dew Pt: %s \xB0 . Wind Sp: %s . Dir: %s",id(precip).state.c_str(),id(dew_pt).state.c_str(),id(wind_speed).state.c_str(),id(wind_dir).state.c_str() );
+          
+          it.set_component_text_printf("tforecast1","Day 1: %s .  %s In.", id(forecast_cond1).state.c_str() , id(forecast_rain1).state.c_str());
+          it.set_component_text_printf("tforecast2","Day 2: %s .  %s In.", id(forecast_cond2).state.c_str() , id(forecast_rain2).state.c_str());
+          it.set_component_text_printf("tforecast3","Day 3: %s .  %s In.", id(forecast_cond3).state.c_str() , id(forecast_rain3).state.c_str());
+          it.set_component_text_printf("tforecast4","Day 4: %s .  %s In.", id(forecast_cond4).state.c_str() , id(forecast_rain4).state.c_str());
+
+
+          if (id(weather_now).state == "partlycloudy"){
+            it.set_component_text("tWeatherNow","Partly Cloudy");
+            it.set_component_picture("pIcon", 22);
+          }else if (id(weather_now).state == "sunny"){
+            it.set_component_text("tWeatherNow","Sunny");
+            it.set_component_picture("pIcon", 21);
+          }else if (id(weather_now).state == "clear-night"){
+            it.set_component_text("tWeatherNow","Clear");
+            it.set_component_picture("pIcon", 13);
+          }else if (id(weather_now).state == "cloudy"){
+            it.set_component_text("tWeatherNow","Cloudy");
+            it.set_component_picture("pIcon", 20);
+          }else if (id(weather_now).state == "fog"){
+            it.set_component_text("tWeatherNow","Fog");
+            it.set_component_picture("pIcon", 12);
+          }else if (id(weather_now).state == "rainy"){
+            it.set_component_text("tWeatherNow","Rain");
+            it.set_component_picture("pIcon", 14);
+          }else if (id(weather_now).state == "snowy-rainy"){
+            it.set_component_text("tWeatherNow","Snow-Rain");
+            it.set_component_picture("pIcon", 16);
+          }else if (id(weather_now).state == "snowy"){
+            it.set_component_text("tWeatherNow","Snow");
+            it.set_component_picture("pIcon", 17);
+          }else if (id(weather_now).state == "lightning-rainy"){
+            it.set_component_text("tWeatherNow","Lightning-Rain");
+            it.set_component_picture("pIcon", 15);
+          }else if (id(weather_now).state == "lightning"){
+            it.set_component_text("tWeatherNow","Lightning");
+            it.set_component_picture("pIcon", 15);
+          }else if (id(weather_now).state == "windy"){
+            it.set_component_text("tWeatherNow","Windy");
+            it.set_component_picture("pIcon", 19);
+          } else{
+            it.set_component_picture("pIcon", 20);
+            it.set_component_text("tWeatherNow","Unknown");
+          }
+
+
+          it.set_component_text_printf("thr1", "%s",id(forecast_time_h0).state.c_str()); 
+          it.set_component_text_printf("tthr1", "%s\xB0",id(forecast_temp_h0).state.c_str()); 
+
+          it.set_component_text_printf("thr2", "%s",id(forecast_time_h1).state.c_str()); 
+          it.set_component_text_printf("tthr2", "%s\xB0",id(forecast_temp_h1).state.c_str());
+
+          it.set_component_text_printf("thr3", "%s",id(forecast_time_h2).state.c_str()); 
+          it.set_component_text_printf("tthr3", "%s\xB0",id(forecast_temp_h2).state.c_str());
+
+          it.set_component_text_printf("thr4", "%s",id(forecast_time_h3).state.c_str()); 
+          it.set_component_text_printf("tthr4", "%s\xB0",id(forecast_temp_h3).state.c_str());
+
+          it.set_component_text_printf("thr5", "%s",id(forecast_time_h4).state.c_str()); 
+          it.set_component_text_printf("tthr5", "%s\xB0",id(forecast_temp_h4).state.c_str());
+
+          it.set_component_text_printf("thr6", "%s",id(forecast_time_h5).state.c_str()); 
+          it.set_component_text_printf("tthr6", "%s\xB0",id(forecast_temp_h5).state.c_str());
+
+          it.set_component_text_printf("thr7", "%s",id(forecast_time_h6).state.c_str()); 
+          it.set_component_text_printf("tthr7", "%s\xB0",id(forecast_temp_h6).state.c_str());
+
+
+          if (id(forecast_cond_h0).state == "partlycloudy"){
+            it.set_component_picture("phr1", 33);
+          }else if (id(forecast_cond_h0).state == "sunny"){
+            it.set_component_picture("phr1", 32);
+          }else if (id(forecast_cond_h0).state == "clear-night"){
+            it.set_component_picture("phr1", 24);
+          }else if (id(forecast_cond_h0).state == "cloudy"){
+            it.set_component_picture("phr1", 31);
+          }else if (id(forecast_cond_h0).state == "fog"){
+            it.set_component_picture("phr1", 23);
+          }else if (id(forecast_cond_h0).state == "rainy"){
+            it.set_component_picture("phr1", 25);
+          }else if (id(forecast_cond_h0).state == "snowy-rainy"){
+            it.set_component_picture("phr1", 27);
+          }else if (id(forecast_cond_h0).state == "snowy"){
+            it.set_component_picture("phr1", 28);
+          }else if (id(forecast_cond_h0).state == "lightning-rainy"){
+            it.set_component_picture("phr1", 26);
+          }else if (id(forecast_cond_h0).state == "lightning"){
+            it.set_component_picture("phr1", 29);
+          }else if (id(forecast_cond_h0).state == "windy"){
+            it.set_component_picture("phr1", 30);
+          } else{
+            it.set_component_picture("phr1", 31);
+          }
+
+          if (id(forecast_cond_h1).state == "partlycloudy"){
+            it.set_component_picture("phr2", 33);
+          }else if (id(forecast_cond_h1).state == "sunny"){
+            it.set_component_picture("phr2", 32);
+          }else if (id(forecast_cond_h1).state == "clear-night"){
+            it.set_component_picture("phr2", 24);
+          }else if (id(forecast_cond_h1).state == "cloudy"){
+            it.set_component_picture("phr2", 31);
+          }else if (id(forecast_cond_h1).state == "fog"){
+            it.set_component_picture("phr2", 23);
+          }else if (id(forecast_cond_h1).state == "rainy"){
+            it.set_component_picture("phr2", 25);
+          }else if (id(forecast_cond_h1).state == "snowy-rainy"){
+            it.set_component_picture("phr2", 27);
+          }else if (id(forecast_cond_h1).state == "snowy"){
+            it.set_component_picture("phr2", 28);
+          }else if (id(forecast_cond_h1).state == "lightning-rainy"){
+            it.set_component_picture("phr2", 26);
+          }else if (id(forecast_cond_h1).state == "lightning"){
+            it.set_component_picture("phr2", 29);
+          }else if (id(forecast_cond_h1).state == "windy"){
+            it.set_component_picture("phr2", 30);
+          } else{
+            it.set_component_picture("phr2", 31);
+          }
+
+          if (id(forecast_cond_h2).state == "partlycloudy"){
+            it.set_component_picture("phr3", 33);
+          }else if (id(forecast_cond_h2).state == "sunny"){
+            it.set_component_picture("phr3", 32);
+          }else if (id(forecast_cond_h2).state == "clear-night"){
+            it.set_component_picture("phr3", 24);
+          }else if (id(forecast_cond_h2).state == "cloudy"){
+            it.set_component_picture("phr3", 31);
+          }else if (id(forecast_cond_h2).state == "fog"){
+            it.set_component_picture("phr3", 23);
+          }else if (id(forecast_cond_h2).state == "rainy"){
+            it.set_component_picture("phr3", 25);
+          }else if (id(forecast_cond_h2).state == "snowy-rainy"){
+            it.set_component_picture("phr3", 27);
+          }else if (id(forecast_cond_h2).state == "snowy"){
+            it.set_component_picture("phr3", 28);
+          }else if (id(forecast_cond_h2).state == "lightning-rainy"){
+            it.set_component_picture("phr3", 26);
+          }else if (id(forecast_cond_h2).state == "lightning"){
+            it.set_component_picture("phr3", 29);
+          }else if (id(forecast_cond_h2).state == "windy"){
+            it.set_component_picture("phr3", 30);
+          } else{
+            it.set_component_picture("phr3", 31);
+          }
+
+          if (id(forecast_cond_h3).state == "partlycloudy"){
+            it.set_component_picture("phr4", 33);
+          }else if (id(forecast_cond_h3).state == "sunny"){
+            it.set_component_picture("phr4", 32);
+          }else if (id(forecast_cond_h3).state == "clear-night"){
+            it.set_component_picture("phr4", 24);
+          }else if (id(forecast_cond_h3).state == "cloudy"){
+            it.set_component_picture("phr4", 31);
+          }else if (id(forecast_cond_h3).state == "fog"){
+            it.set_component_picture("phr4", 23);
+          }else if (id(forecast_cond_h3).state == "rainy"){
+            it.set_component_picture("phr4", 25);
+          }else if (id(forecast_cond_h3).state == "snowy-rainy"){
+            it.set_component_picture("phr4", 27);
+          }else if (id(forecast_cond_h3).state == "snowy"){
+            it.set_component_picture("phr4", 28);
+          }else if (id(forecast_cond_h3).state == "lightning-rainy"){
+            it.set_component_picture("phr4", 26);
+          }else if (id(forecast_cond_h3).state == "lightning"){
+            it.set_component_picture("phr4", 29);
+          }else if (id(forecast_cond_h3).state == "windy"){
+            it.set_component_picture("phr4", 30);
+          } else{
+            it.set_component_picture("phr4", 31);
+          }
+
+          if (id(forecast_cond_h4).state == "partlycloudy"){
+            it.set_component_picture("phr5", 33);
+          }else if (id(forecast_cond_h4).state == "sunny"){
+            it.set_component_picture("phr5", 32);
+          }else if (id(forecast_cond_h4).state == "clear-night"){
+            it.set_component_picture("phr5", 24);
+          }else if (id(forecast_cond_h4).state == "cloudy"){
+            it.set_component_picture("phr5", 31);
+          }else if (id(forecast_cond_h4).state == "fog"){
+            it.set_component_picture("phr5", 23);
+          }else if (id(forecast_cond_h4).state == "rainy"){
+            it.set_component_picture("phr5", 25);
+          }else if (id(forecast_cond_h4).state == "snowy-rainy"){
+            it.set_component_picture("phr5", 27);
+          }else if (id(forecast_cond_h4).state == "snowy"){
+            it.set_component_picture("phr5", 28);
+          }else if (id(forecast_cond_h4).state == "lightning-rainy"){
+            it.set_component_picture("phr5", 26);
+          }else if (id(forecast_cond_h4).state == "lightning"){
+            it.set_component_picture("phr5", 29);
+          }else if (id(forecast_cond_h4).state == "windy"){
+            it.set_component_picture("phr5", 30);
+          } else{
+            it.set_component_picture("phr5", 31);
+          }
+
+          if (id(forecast_cond_h5).state == "partlycloudy"){
+            it.set_component_picture("phr6", 33);
+          }else if (id(forecast_cond_h5).state == "sunny"){
+            it.set_component_picture("phr6", 32);
+          }else if (id(forecast_cond_h5).state == "clear-night"){
+            it.set_component_picture("phr6", 24);
+          }else if (id(forecast_cond_h5).state == "cloudy"){
+            it.set_component_picture("phr6", 31);
+          }else if (id(forecast_cond_h5).state == "fog"){
+            it.set_component_picture("phr6", 23);
+          }else if (id(forecast_cond_h5).state == "rainy"){
+            it.set_component_picture("phr6", 25);
+          }else if (id(forecast_cond_h5).state == "snowy-rainy"){
+            it.set_component_picture("phr6", 27);
+          }else if (id(forecast_cond_h5).state == "snowy"){
+            it.set_component_picture("phr6", 28);
+          }else if (id(forecast_cond_h5).state == "lightning-rainy"){
+            it.set_component_picture("phr6", 26);
+          }else if (id(forecast_cond_h5).state == "lightning"){
+            it.set_component_picture("phr6", 29);
+          }else if (id(forecast_cond_h5).state == "windy"){
+            it.set_component_picture("phr6", 30);
+          } else{
+            it.set_component_picture("phr6", 31);
+          }
+
+          if (id(forecast_cond_h6).state == "partlycloudy"){
+            it.set_component_picture("phr7", 33);
+          }else if (id(forecast_cond_h6).state == "sunny"){
+            it.set_component_picture("phr7", 32);
+          }else if (id(forecast_cond_h6).state == "clear-night"){
+            it.set_component_picture("phr7", 24);
+          }else if (id(forecast_cond_h6).state == "cloudy"){
+            it.set_component_picture("phr7", 31);
+          }else if (id(forecast_cond_h6).state == "fog"){
+            it.set_component_picture("phr7", 23);
+          }else if (id(forecast_cond_h6).state == "rainy"){
+            it.set_component_picture("phr7", 25);
+          }else if (id(forecast_cond_h6).state == "snowy-rainy"){
+            it.set_component_picture("phr7", 27);
+          }else if (id(forecast_cond_h6).state == "snowy"){
+            it.set_component_picture("phr7", 28);
+          }else if (id(forecast_cond_h6).state == "lightning-rainy"){
+            it.set_component_picture("phr7", 26);
+          }else if (id(forecast_cond_h6).state == "lightning"){
+            it.set_component_picture("phr7", 29);
+          }else if (id(forecast_cond_h6).state == "windy"){
+            it.set_component_picture("phr7", 30);
+          } else{
+            it.set_component_picture("phr7", 31);
+          }
+
+          if (id(s1_6).state) {
+          it.set_component_text("SMV1Rly", "ON");
+          it.set_component_font_color("SMV1Rly", "47041");          
+          }else{
+          it.set_component_text("SMV1Rly", "OFF");
+          it.set_component_font_color("SMV1Rly", "63488");
+          }
+          if (id(s1_7).state) {
+          it.set_component_text("SMV2Rly", "ON");
+          it.set_component_font_color("SMV2Rly", "47041");          
+          }else{
+          it.set_component_text("SMV2Rly", "OFF");
+          it.set_component_font_color("SMV2Rly", "63488");
+          }
+
+          if (id(smv1_on).state) {                    
+          it.set_component_background_color("smv1pipe1", "2016");
+          it.set_component_background_color("smv1pipe2", "2016");
+          it.set_component_background_color("smv1pipe3", "2016");
+          } else if (id(smv1_off).state) { 
+          it.set_component_background_color("smv1pipe1", "63488");
+          it.set_component_background_color("smv1pipe2", "63488");
+          it.set_component_background_color("smv1pipe3", "63488");
+          } else if (id(s1_6).state) { 
+          it.set_component_background_color("smv1pipe1", "65517");
+          it.set_component_background_color("smv1pipe2", "65517");
+          it.set_component_background_color("smv1pipe3", "65517");
+          } else {
+          it.set_component_background_color("smv1pipe1", "2102");
+          it.set_component_background_color("smv1pipe2", "2102");
+          it.set_component_background_color("smv1pipe3", "2102");
+          }
+
+          if (id(smv2_on).state) {
+
+          it.set_component_background_color("smv2pipe1", "2016");
+          it.set_component_background_color("smv2pipe2", "2016");
+          it.set_component_background_color("smv2pipe3", "2016");
+          it.set_component_background_color("smv2pipe4", "2016");
+          it.set_component_background_color("smv2pipe5", "2016");
+
+          } else if (id(smv2_off).state) { 
+          it.set_component_background_color("smv2pipe1", "63488");
+          it.set_component_background_color("smv2pipe2", "63488");
+          it.set_component_background_color("smv2pipe3", "63488");
+          it.set_component_background_color("smv2pipe4", "63488");
+          it.set_component_background_color("smv2pipe5", "63488");
+
+          } else if (id(s1_7).state) { 
+          it.set_component_background_color("smv2pipe1", "65517");
+          it.set_component_background_color("smv2pipe2", "65517");
+          it.set_component_background_color("smv2pipe3", "65517");
+          it.set_component_background_color("smv2pipe4", "65517");
+          it.set_component_background_color("smv2pipe5", "65517");
+
+          } else {
+          it.set_component_background_color("smv2pipe1", "2102");
+          it.set_component_background_color("smv2pipe2", "2102");
+          it.set_component_background_color("smv2pipe3", "2102");
+          it.set_component_background_color("smv2pipe4", "2102");
+          it.set_component_background_color("smv2pipe5", "2102");
+
+          }
+
+          if (id(s1_1).state) {
+          it.set_component_text("MVrelay", "ON");
+          it.set_component_font_color("MVrelay", "47041");          
+          }else{
+          it.set_component_text("MVrelay", "OFF");
+          it.set_component_font_color("MVrelay", "63488");
+          }
+
+          if (id(s1_2).state) {
+          it.set_component_text("IrrVrelay", "ON");
+          it.set_component_font_color("IrrVrelay", "47041");          
+          }else{
+          it.set_component_text("IrrVrelay", "OFF");
+          it.set_component_font_color("IrrVrelay", "63488");
+          }
+
+          if (id(s1_3).state) {
+          it.set_component_text("HWVrelay", "ON");
+          it.set_component_font_color("HWVrelay", "47041");          
+          }else{
+          it.set_component_text("HWVrelay", "OFF");
+          it.set_component_font_color("HWVrelay", "63488");
+          }
+
+          if (id(mv_on).state) {                    
+          it.set_component_background_color("mpipe1", "2016");
+          it.set_component_background_color("t8", "2016");
+          it.set_component_background_color("tcw1pipe1", "2016");
+          it.set_component_background_color("tcw1pipe2", "2016");
+
+          } else if (id(mv_off).state) { 
+          it.set_component_background_color("mpipe1", "63488");
+          it.set_component_background_color("t8", "63488");
+          it.set_component_background_color("tcw1pipe1", "63488");
+          it.set_component_background_color("tcw1pipe2", "63488");
+
+          } else if (id(s1_1).state) { 
+          it.set_component_background_color("mpipe1", "65517");
+          it.set_component_background_color("t8", "65517");
+          it.set_component_background_color("tcw1pipe1", "65517");
+          it.set_component_background_color("tcw1pipe2", "65517");
+
+          } else {
+          it.set_component_background_color("mpipe1", "2102");
+          it.set_component_background_color("t8", "2102");
+          it.set_component_background_color("tcw1pipe1", "2102");
+          it.set_component_background_color("tcw1pipe2", "2102");
+          }
+
+          if (id(irv_on).state) {
+                   
+          it.set_component_background_color("mpipe2", "2016");
+          it.set_component_background_color("mpipeext", "2016");
+          it.set_component_background_color("mpipeext1", "2016");
+
+          } else if (id(irv_off).state) { 
+          it.set_component_background_color("mpipe2", "63488");
+          it.set_component_background_color("mpipeext", "63488");
+          it.set_component_background_color("mpipeext1", "63488");
+
+          } else if (id(s1_2).state) { 
+          it.set_component_background_color("mpipe2", "65517");
+          it.set_component_background_color("mpipeext", "65517");
+          it.set_component_background_color("mpipeext1", "65517");
+
+          } else {
+          it.set_component_background_color("mpipe2", "2102");
+          it.set_component_background_color("mpipeext", "2102");
+          it.set_component_background_color("mpipeext1", "2102");
+
+          }
+
+          if (id(hwv_on).state) {                    
+          it.set_component_background_color("t9", "2016");
+          it.set_component_background_color("thw1pipe1", "2016");
+          it.set_component_background_color("thw1pipe2", "2016");
+          it.set_component_background_color("thw1pipe3", "2016");
+          
+
+          } else if (id(hwv_off).state) { 
+          it.set_component_background_color("t9", "63488");
+          it.set_component_background_color("thw1pipe1", "63488");
+          it.set_component_background_color("thw1pipe2", "63488");
+          it.set_component_background_color("thw1pipe3", "63488");
+
+          } else if (id(s1_3).state) { 
+          it.set_component_background_color("t9", "65517");
+          it.set_component_background_color("thw1pipe1", "65517");
+          it.set_component_background_color("thw1pipe2", "65517");
+          it.set_component_background_color("thw1pipe3", "65517");
+          } else {
+          it.set_component_background_color("t9", "2102");
+          it.set_component_background_color("thw1pipe1", "2102");
+          it.set_component_background_color("thw1pipe2", "2102");
+          it.set_component_background_color("thw1pipe3", "2102");
+          }
+
+          if (id(s1_5).state) {
+          it.set_component_text("tWasCWValve", "ON");
+          it.set_component_font_color("tWasCWValve", "47041");          
+          }else{
+          it.set_component_text("tWasCWValve", "OFF");
+          it.set_component_font_color("tWasCWValve", "63488");
+          }
+          if (id(s1_4).state) {
+          it.set_component_text("tWasHWValve", "ON");
+          it.set_component_font_color("tWasHWValve", "47041");          
+          }else{
+          it.set_component_text("tWasHWValve", "OFF");
+          it.set_component_font_color("tWasHWValve", "63488");
+          }
+
+          if (id(lvc_on).state) {                    
+          it.set_component_background_color("tcw1pipe3", "2016");
+          } else if (id(lvc_off).state) { 
+          it.set_component_background_color("tcw1pipe3", "63488");
+          } else if (id(s1_5).state) { 
+          it.set_component_background_color("tcw1pipe3", "65517");
+          } else {
+          it.set_component_background_color("tcw1pipe3", "2102");
+          }
+
+          if (id(lvh_on).state) {
+          it.set_component_background_color("thw1pipe4", "2016");
+          } else if (id(lvh_off).state) {  
+          it.set_component_background_color("thw1pipe4", "63488");
+          } else if (id(s1_4).state) { 
+          it.set_component_background_color("thw1pipe4", "65517");
+          } else {
+          it.set_component_background_color("thw1pipe4", "2102");
+          }
+
+
+
+          auto avn = id(${enc_id}_lawn_sprinkler_ctrlr).active_valve().value();
+          switch (avn) {
+            case 0: id(active_valve_name) = "L. Front Ctr: %2d m %2d s";                         
+            break;
+            case 1: id(active_valve_name) = "L. Front Road: %2d m %2d s";                         
+            break;
+            case 2: id(active_valve_name) = "L. Front Shed: %2d m %2d s";
+            break;
+            case 3: id(active_valve_name) = "L. Rear Shed: %2d m %2d s";
+            break;
+            case 4: id(active_valve_name) = "L. Rear Cor.: %2d m %2d s";
+            break;
+            case 5: id(active_valve_name) = "L. Rear House: %2d m %2d s";
+            break;
+            case 6: id(active_valve_name) = "R. Front Road: %2d m %2d s";
+            break;
+            case 7: id(active_valve_name) = "R. Front Ctr: %2d m %2d s";
+            break;
+            case 8: id(active_valve_name) = "R. Front House: %2d m %2d s";
+            break;
+            case 9: id(active_valve_name) = "R. Rear House: %2d m %2d s";
+            break;
+            case 10: id(active_valve_name) = "R. Rear Fence: %2d m %2d s";
+            break;
+            case 11: id(active_valve_name) = "R. Side House: %2d m %2d s";
+            break;
+            case 12: id(active_valve_name) = "Zone 13: %2d m %2d s";
+            break;
+            case 13: id(active_valve_name) = "Zone 14: %2d m %2d s";
+            break;
+            case 14: id(active_valve_name) = "Zone 15: %2d m %2d s";
+            break;
+            case 15: id(active_valve_name) = "Zone 16: %2d m %2d s";
+            break;
+            case 16: id(active_valve_name) = "Drip 1: %2d m %2d s";
+            break;
+            case 17: id(active_valve_name) = "Drip 2: %2d m %2d s";
+            break;
+            case 18: id(active_valve_name) = "Zone 19: %2d m %2d s";
+            break;
+            case 19: id(active_valve_name) = "Zone 20: %2d m %2d s";
+            break;
+            case 20: id(active_valve_name) = "Zone 21: %2d m %2d s";
+            break;
+            case 21: id(active_valve_name) = "Zone 22: %2d m %2d s";
+            break;
+            case 22: id(active_valve_name) = "Zone 23: %2d m %2d s";
+            break;
+            case 23: id(active_valve_name) = "Zone 24: %2d m %2d s";
+            default: id(active_valve_name) = "Zones Idle";
+            break;
+          }
+
+          if (id(active_valve).state){
+            it.set_component_text_printf("ZNmTime", id(active_valve_name).c_str()  , 
+            id(${enc_id}_lawn_sprinkler_ctrlr).time_remaining_active_valve().value() /
+              60, id(${enc_id}_lawn_sprinkler_ctrlr).time_remaining_active_valve().value() % 60);  
+
+          }else{
+            it.set_component_text("ZNmTime", "");            
+          }              
+
+          auto multiplier_valve = id(${enc_id}_lawn_sprinkler_ctrlr).multiplier();          
+          it.set_component_text_printf("MultStatus", "Multiplier: %.f ", multiplier_valve);
+
+          if (id(active_valve).state){
+              it.set_component_text_printf("ZoneNum", "Zone On -  %.0f ", id(active_valve).state);
+            }else{
+              it.set_component_text("ZoneNum", "All Off");
+            }
+
+
+          if (id(lawn_sprinkler_valve_sw0).state) {             
+            it.set_component_background_color("z1p", "2016"); 
+            }else{
+            it.set_component_background_color("z1p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw1).state) {             
+            it.set_component_background_color("z2p", "2016"); 
+            }else{
+            it.set_component_background_color("z2p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw2).state) {             
+            it.set_component_background_color("z3p", "2016"); 
+            }else{
+            it.set_component_background_color("z3p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw3).state) {             
+            it.set_component_background_color("z4p", "2016"); 
+            }else{
+            it.set_component_background_color("z4p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw4).state) {             
+            it.set_component_background_color("z5p", "2016"); 
+            }else{
+            it.set_component_background_color("z5p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw5).state) {             
+            it.set_component_background_color("z6p", "2016"); 
+            }else{
+            it.set_component_background_color("z6p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw6).state) {             
+            it.set_component_background_color("z7p", "2016"); 
+            }else{
+            it.set_component_background_color("z7p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw7).state) {             
+            it.set_component_background_color("z8p", "2016"); 
+            }else{
+            it.set_component_background_color("z8p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw8).state) {             
+            it.set_component_background_color("z9p", "2016"); 
+            }else{
+            it.set_component_background_color("z9p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw9).state) {             
+            it.set_component_background_color("z10p", "2016"); 
+            }else{
+            it.set_component_background_color("z10p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw10).state) {             
+            it.set_component_background_color("z11p", "2016"); 
+            }else{
+            it.set_component_background_color("z11p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw11).state) {             
+            it.set_component_background_color("z12p", "2016"); 
+            }else{
+            it.set_component_background_color("z12p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw12).state) {             
+            it.set_component_background_color("z13p", "2016"); 
+            }else{
+            it.set_component_background_color("z13p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw13).state) {             
+            it.set_component_background_color("z14p", "2016"); 
+            }else{
+            it.set_component_background_color("z14p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw14).state) {             
+            it.set_component_background_color("z15p", "2016"); 
+            }else{
+            it.set_component_background_color("z15p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw15).state) {             
+            it.set_component_background_color("z16p", "2016"); 
+            }else{
+            it.set_component_background_color("z16p", "63488");
+            }
+
+          if (id(lawn_sprinkler_valve_sw16).state) {             
+            it.set_component_background_color("d1p", "2016"); 
+            }else{
+            it.set_component_background_color("d1p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw17).state) {             
+            it.set_component_background_color("d2p", "2016"); 
+            }else{
+            it.set_component_background_color("d2p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw18).state) {             
+            it.set_component_background_color("z19p", "2016"); 
+            }else{
+            it.set_component_background_color("z19p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw19).state) {             
+            it.set_component_background_color("z20p", "2016"); 
+            }else{
+            it.set_component_background_color("z20p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw20).state) {             
+            it.set_component_background_color("z21p", "2016"); 
+            }else{
+            it.set_component_background_color("z21p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw21).state) {             
+            it.set_component_background_color("z22p", "2016"); 
+            }else{
+            it.set_component_background_color("z22p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw22).state) {             
+            it.set_component_background_color("z23p", "2016"); 
+            }else{
+            it.set_component_background_color("z23p", "63488");
+            }
+          if (id(lawn_sprinkler_valve_sw23).state) {             
+            it.set_component_background_color("z24p", "2016"); 
+            }else{
+            it.set_component_background_color("z24p", "63488");
+            }
+
+
+
+          it.set_component_text_printf("WHVoltage", " %.1f V", id(hw_htr_voltage).state);
+          it.set_component_font_color("WHVoltage", "63561");
+
+          if (id(hw_htr_switch).state) {
+              it.set_component_text("WHStatus", "On");
+              it.set_component_font_color("WHStatus", "47041"); 
+            }else{
+              it.set_component_text("WHStatus", "Off");
+              it.set_component_font_color("WHStatus", "63488"); 
+            }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+           }
+
+
+          if (id(nextion_page_id) == 1) {
+
+          if (id(ins_mas_bath).state) {
+            id(leak_detected_8)=1;
+             static int i9 = 0;
+             i9++;
+               if ((i9 % 2) == 0){
+                  it.set_component_text("InsMBath", "Ins Master Bath  - Wet");
+                  it.set_component_font_color("InsMBath", "63488"); 
+               }else{
+                  it.set_component_text("InsMBath", "Ins Master Bath - Wet");
+                  it.set_component_font_color("InsMBath", "65503"); 
+               } 
+          }else{
+            id(leak_detected_8)=0;
+              it.set_component_text("InsMBath", "Ins Master Bath - Dry");
+              it.set_component_font_color("InsMBath", "47041");  
+          }   
+
+          if (id(ins_kit_sink).state) {
+            id(leak_detected_9)=1;
+             static int ii = 0;
+             ii++;
+               if ((ii % 2) == 0){
+                  it.set_component_text("InsKitSink", "Ins Kitchen Sink - Wet");
+                  it.set_component_font_color("InsKitSink", "63488"); 
+               }else{
+                  it.set_component_text("InsKitSink", "Ins Kitchen Sink - Wet");
+                  it.set_component_font_color("InsKitSink", "65503"); 
+               } 
+          }else{
+            id(leak_detected_9)=0;
+              it.set_component_text("InsKitSink", "Ins Kitchen Sink - Dry");
+              it.set_component_font_color("InsKitSink", "47041");  
+          }
+         
+          if (id(ins_guest_bath).state) {
+            id(leak_detected_10)=1;
+             static int ii1 = 0;
+             ii1++;
+               if ((ii1 % 2) == 0){
+                  it.set_component_text("InsGBath", "Insteon Guest Bath - Wet");
+                  it.set_component_font_color("InsGBath", "63488"); 
+               }else{
+                  it.set_component_text("InsGBath", "Insteon Guest Bath - Wet");
+                  it.set_component_font_color("InsGBath", "65503"); 
+               } 
+          }else{
+            id(leak_detected_10)=0;
+              it.set_component_text("InsGBath", "Insteon Guest Bath - Dry");
+              it.set_component_font_color("InsGBath", "47041");  
+          }
+
+          if (id(ins_fridge).state) {
+            id(leak_detected_11)=1;
+             static int ii2 = 0;
+             ii2++;
+               if ((ii2 % 2) == 0){
+                  it.set_component_text("InsFridge", "Insteon Refrigerator - Wet");
+                  it.set_component_font_color("InsFridge", "63488"); 
+               }else{
+                  it.set_component_text("InsFridge", "Insteon Refrigerator - Wet");
+                  it.set_component_font_color("InsFridge", "65503"); 
+               } 
+          }else{
+            id(leak_detected_11)=0;
+              it.set_component_text("InsFridge", "Insteon Refrigerator - Dry");
+              it.set_component_font_color("InsFridge", "47041");  
+          }
+
+          if (id(ins_dishwasher).state) {
+            id(leak_detected_12)=1;                        
+             static int ii3 = 0;
+             ii3++;
+               if ((ii3 % 2) == 0){
+                  it.set_component_text("InsDishW", "Insteon Dishwasher - Wet");
+                  it.set_component_font_color("InsDishW", "63488"); 
+               }else{
+                  it.set_component_text("InsDishW", "Insteon Dishwasher - Wet");
+                  it.set_component_font_color("InsDishW", "65503"); 
+               } 
+          }else{
+            id(leak_detected_12)=0;
+              it.set_component_text("InsDishW", "Insteon Dishwasher - Dry");
+              it.set_component_font_color("InsDishW", "47041");  
+          }
+
+          if (id(ins_wtr_htr).state) {
+            id(leak_detected_13)=1;
+             static int i1 = 0;
+             i1++;
+               if ((i1 % 2) == 0){
+                  it.set_component_text("InsWtrHtr", "Insteon Water Heater - Wet");
+                  it.set_component_font_color("InsWtrHtr", "63488"); 
+               }else{
+                  it.set_component_text("InsWtrHtr", "Insteon Water Heater - Wet");
+                  it.set_component_font_color("InsWtrHtr", "65503"); 
+               } 
+          }else{
+             id(leak_detected_13)=0;            
+              it.set_component_text("InsWtrHtr", "Insteon Water Heater - Dry");
+              it.set_component_font_color("InsWtrHtr", "47041");  
+          }
+
+          if (id(ins_laundry).state) {
+            id(leak_detected_14)=1;
+             static int i1 = 0;
+             i1++;
+               if ((i1 % 2) == 0){
+                  it.set_component_text("InsLaundry", "Insteon Laundry - Wet");
+                  it.set_component_font_color("InsLaundry", "63488"); 
+               }else{
+                  it.set_component_text("InsLaundry", "Insteon Laundry - Wet");
+                  it.set_component_font_color("InsLaundry", "65503"); 
+               } 
+          }else{
+             id(leak_detected_13)=0;            
+              it.set_component_text("InsLaundry", "Insteon Laundry - Dry");
+              it.set_component_font_color("InsLaundry", "47041");  
+          }
+
+          if (id(ins_guestbathsink).state) {
+            id(leak_detected_15)=1;
+             static int i1 = 0;
+             i1++;
+               if ((i1 % 2) == 0){
+                  it.set_component_text("InsGBSink", "Insteon Guest Sink - Wet");
+                  it.set_component_font_color("InsGBSink", "63488"); 
+               }else{
+                  it.set_component_text("InsGBSink", "Insteon Guest Sink - Wet");
+                  it.set_component_font_color("InsGBSink", "65503"); 
+               } 
+          }else{
+             id(leak_detected_13)=0;            
+              it.set_component_text("InsGBSink", "Insteon Guest Sink - Dry");
+              it.set_component_font_color("InsGBSink", "47041");  
+          }
+
+          if (id(mas_bath_flood).state) {
+            id(leak_detected_1)=1;
+             static int i2 = 0;
+             i2++;
+               if ((i2 % 2) == 0){
+                  it.set_component_text("MBath", "Master Bath - Wet");
+                  it.set_component_font_color("MBath", "63488"); 
+               }else{
+                  it.set_component_text("MBath", "Master Bath - Wet");
+                  it.set_component_font_color("MBath", "65503"); 
+               } 
+          }else{
+            id(leak_detected_1)=0;
+              it.set_component_text("MBath", "Master Bath - Dry");
+              it.set_component_font_color("MBath", "47041");  
+          }
+
+          if (id(wtr_htr_flood).state) {
+            id(leak_detected_2)=1;
+             static int i3 = 0;
+             i3++;
+               if ((i3 % 2) == 0){
+                  it.set_component_text("Sen2", "Water Heater - Wet");
+                  it.set_component_font_color("Sen2", "63488"); 
+               }else{
+                  it.set_component_text("Sen2", "Water Heater - Wet");
+                  it.set_component_font_color("Sen2", "65503"); 
+               } 
+          }else{
+            id(leak_detected_2)=0;
+              it.set_component_text("Sen2", "Water Heater - Dry");
+              it.set_component_font_color("Sen2", "47041");  
+          }
+
+          if (id(kit_sink_flood).state) {
+            id(leak_detected_3)=1;
+            id(nextion1).update_components_by_prefix("page0.");
+             static int i4 = 0;
+             i4++;
+               if ((i4 % 2) == 0){
+                  it.set_component_text("KitSink", "Kitchen Sink - Wet");
+                  it.set_component_font_color("KitSink", "63488"); 
+               }else{
+                  it.set_component_text("KitSink", "Kitchen Sink - Wet");
+                  it.set_component_font_color("KitSink", "65503"); 
+               } 
+          }else{
+            id(leak_detected_3)=0;
+              it.set_component_text("KitSink", "Kitchen Sink - Dry");
+              it.set_component_font_color("KitSink", "47041");               
+          }
+
+          if (id(guest_bath_flood).state) {
+            id(leak_detected_4)=1;
+             static int i5 = 0;
+             i5++;
+               if ((i5 % 2) == 0){
+                  it.set_component_text("GBath", "Guest Bath - Wet");
+                  it.set_component_font_color("GBath", "63488"); 
+               }else{
+                  it.set_component_text("GBath", "Guest Bath - Wet");
+                  it.set_component_font_color("GBath", "65503"); 
+               } 
+          }else{
+            id(leak_detected_4)=0;
+              it.set_component_text("GBath", "Guest Bath - Dry");
+              it.set_component_font_color("GBath", "47041");  
+          }
+
+          if (id(guest_bath_sink_flood).state) {
+            id(leak_detected_5)=1;
+             static int i6 = 0;
+             i6++;
+               if ((i6 % 2) == 0){
+                   it.set_component_text("GBSink", "Guest Bath Sink - Wet");
+                  it.set_component_font_color("GBSink", "63488"); 
+               }else{
+                  it.set_component_text("GBSink", "Guest Bath Sink - Wet");
+                  it.set_component_font_color("GBSink", "65503"); 
+               } 
+          }else{
+            id(leak_detected_5)=0;
+              it.set_component_text("GBSink", "Guest Bath Sink - Dry");
+              it.set_component_font_color("GBSink", "47041");  
+          }
+
+          if (id(mas_bath_sink_flood).state) {
+            id(leak_detected_6)=1;
+             static int i7 = 0;
+             i7++;
+               if ((i7 % 2) == 0){
+                  it.set_component_text("MasBSink", "Master Bath Sink - Wet");
+                  it.set_component_font_color("MasBSink", "63488"); 
+               }else{
+                  it.set_component_text("MasBSink", "Master Bath Sink - Wet");
+                  it.set_component_font_color("MasBSink", "65503"); 
+               } 
+          }else{
+            id(leak_detected_6)=0;
+              it.set_component_text("MasBSink", "Master Bath Sink - Dry");
+              it.set_component_font_color("MasBSink", "47041");  
+          }
+
+          if (id(ins_mas_bath_sink).state) {
+            id(leak_detected_7)=1;
+             static int i8 = 0;
+             i8++;
+               if ((i8 % 2) == 0){
+                  it.set_component_text("InsMBSink", "Ins Master Bath Sink - Wet");
+                  it.set_component_font_color("InsMBSink", "63488"); 
+               }else{
+                  it.set_component_text("InsMBSink", "Ins Master Bath Sink - Wet");
+                  it.set_component_font_color("InsMBSink", "65503"); 
+               } 
+          }else{
+            id(leak_detected_7)=0;
+              it.set_component_text("InsMBSink", "Ins Master Bath Sink - Dry");
+              it.set_component_font_color("InsMBSink", "47041");  
+          }
+
+
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(0)->state) {
+          it.set_component_text("Z1", "Z1 Enabled");
+          it.set_component_font_color("Z1", "2239");
+          it.set_component_picture("Z1", 38);
+          } else {
+          it.set_component_text("Z1", "Z1 Disbld");
+          it.set_component_font_color("Z1", "65471");
+          it.set_component_picture("Z1", 37);          
+          }
+
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(1)->state) {
+          it.set_component_text("Z2", "Z2 Enabled");
+          it.set_component_font_color("Z2", "2239");
+          it.set_component_picture("Z2", 38);          
+          } else {
+          it.set_component_text("Z2", "Z2 Disbld");
+          it.set_component_font_color("Z2", "65471");
+          it.set_component_picture("Z2", 37);          
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(2)->state) {
+          it.set_component_text("Z3", "Z3 Enabled");
+          it.set_component_font_color("Z3", "2239");
+          it.set_component_picture("Z3", 38);          
+          } else {
+          it.set_component_text("Z3", "Z3 Disbld");
+          it.set_component_font_color("Z3", "65471");
+          it.set_component_picture("Z3", 37);          
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(3)->state) {
+          it.set_component_text("Z4", "Z4 Enabled");
+          it.set_component_font_color("Z4", "2239");
+          it.set_component_picture("Z4", 38);          
+          } else {
+          it.set_component_text("Z4", "Z4 Disbld");
+          it.set_component_font_color("Z4", "65471");
+          it.set_component_picture("Z4", 37);          
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(4)->state) {
+          it.set_component_text("Z5", "Z5 Enabled");
+          it.set_component_font_color("Z5", "2239");
+          it.set_component_picture("Z5", 38);          
+          } else {
+          it.set_component_text("Z5", "Z5 Disbld");
+          it.set_component_font_color("Z5", "65471");
+          it.set_component_picture("Z5", 37);          
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(5)->state) {
+          it.set_component_text("Z6", "Z6 Enabled");
+          it.set_component_font_color("Z6", "2239");
+          it.set_component_picture("Z6", 38);          
+          } else {
+          it.set_component_text("Z6", "Z6 Disbld");
+          it.set_component_font_color("Z6", "65471");
+          it.set_component_picture("Z6", 37);          
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(6)->state) {
+          it.set_component_text("Z7", "Z7 Enabled");
+          it.set_component_font_color("Z7", "2239");
+          it.set_component_picture("Z7", 38);          
+          } else {
+          it.set_component_text("Z7", "Z7 Disbld");
+          it.set_component_font_color("Z7", "65471");
+          it.set_component_picture("Z7", 37);          
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(7)->state) {
+          it.set_component_text("Z8", "Z8 Enabled");
+          it.set_component_font_color("Z8", "2239");
+          it.set_component_picture("Z8", 38);          
+          } else {
+          it.set_component_text("Z8", "Z8 Disbld");
+          it.set_component_font_color("Z8", "65471");
+          it.set_component_picture("Z8", 37);          
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(8)->state) {
+          it.set_component_text("Z9", "Z9 Enabled");
+          it.set_component_font_color("Z9", "2239"); 
+          it.set_component_picture("Z9", 38);         
+          } else {
+          it.set_component_text("Z9", "Z9 Disbld");
+          it.set_component_font_color("Z9", "65471");
+          it.set_component_picture("Z9", 37);          
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(9)->state) {
+          it.set_component_text("Z10", "Z10 Enabled");
+          it.set_component_font_color("Z10", "2239");
+          it.set_component_picture("Z10", 38);          
+          } else {
+          it.set_component_text("Z10", "Z10 Disbld");
+          it.set_component_font_color("Z10", "65471");
+          it.set_component_picture("Z10", 37);          
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(10)->state) {
+          it.set_component_text("Z11", "Z11 Enabled");
+          it.set_component_font_color("Z11", "2239");
+          it.set_component_picture("Z11", 38);          
+          } else {
+          it.set_component_text("Z11", "Z11 Disbld");
+          it.set_component_font_color("Z11", "65471");
+          it.set_component_picture("Z11", 37);          
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(11)->state) {
+          it.set_component_text("Z12", "Z12 Enabled");
+          it.set_component_font_color("Z12", "2239");
+          it.set_component_picture("Z12", 38);          
+          } else {
+          it.set_component_text("Z12", "Z12 Disbld");
+          it.set_component_font_color("Z12", "65471");
+          it.set_component_picture("Z12", 37);          
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(12)->state) {
+          it.set_component_text("Z13", "Z13 Enabled");
+          it.set_component_font_color("Z13", "2239");
+          it.set_component_picture("Z13", 38);          
+          } else {
+          it.set_component_text("Z13", "Z13 Disbld");
+          it.set_component_font_color("Z13", "65471");
+          it.set_component_picture("Z13", 37);          
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(13)->state) {
+          it.set_component_text("Z14", "Z14 Enabled");
+          it.set_component_font_color("Z14", "2239");
+          it.set_component_picture("Z14", 38);          
+          } else {
+          it.set_component_text("Z14", "Z14 Disbld");
+          it.set_component_font_color("Z14", "65471");
+          it.set_component_picture("Z14", 37);          
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(14)->state) {
+          it.set_component_text("Z15", "Z15 Enabled");
+          it.set_component_font_color("Z15", "2239");
+          it.set_component_picture("Z15", 38);          
+          } else {
+          it.set_component_text("Z15", "Z15 Disbld");
+          it.set_component_font_color("Z15", "65471");
+          it.set_component_picture("Z15", 37);          
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(15)->state) {
+          it.set_component_text("Z16", "Z16 Enabled");
+          it.set_component_font_color("Z16", "2239");
+          it.set_component_picture("Z16", 38);          
+          } else {
+          it.set_component_text("Z16", "Z16 Disbld");
+          it.set_component_font_color("Z16", "65471"); 
+          it.set_component_picture("Z16", 37);         
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(16)->state) {
+          it.set_component_text("DR1", "DR1 Enabled");
+          it.set_component_font_color("DR1", "2239");          
+          } else {
+          it.set_component_text("DR1", "DR1 Disbld");
+          it.set_component_font_color("DR1", "63488");          
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(17)->state) {
+          it.set_component_text("DR2", "DR2 Enabled");
+          it.set_component_font_color("DR2", "2239");          
+          } else {
+          it.set_component_text("DR2", "DR2 Disbld");
+          it.set_component_font_color("DR2", "63488");          
+          }
+
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(18)->state) {
+          it.set_component_text("z19", "Z19 Enabled");
+          it.set_component_font_color("z19", "2239");          
+          } else {
+          it.set_component_text("z19", "Z19 Disbld");
+          it.set_component_font_color("z19", "63488");          
+          }
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(19)->state) {
+          it.set_component_text("z20", "Z20 Enabled");
+          it.set_component_font_color("z20", "2239");          
+          } else {
+          it.set_component_text("z20", "Z20 Disbld");
+          it.set_component_font_color("z20", "63488");          
+          }
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(20)->state) {
+          it.set_component_text("z21", "Z21 Enabled");
+          it.set_component_font_color("z21", "2239");          
+          } else {
+          it.set_component_text("z21", "Z21 Disbld");
+          it.set_component_font_color("z21", "63488");          
+          }
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(21)->state) {
+          it.set_component_text("z22", "Z22 Enabled");
+          it.set_component_font_color("z22", "2239");          
+          } else {
+          it.set_component_text("z22", "Z22 Disbld");
+          it.set_component_font_color("z22", "63488");          
+          }
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(22)->state) {
+          it.set_component_text("z23", "Z23 Enabled");
+          it.set_component_font_color("z23", "2239");          
+          } else {
+          it.set_component_text("z23", "Z23 Disbld");
+          it.set_component_font_color("z23", "63488");          
+          }
+          if(id(${enc_id}_lawn_sprinkler_ctrlr).enable_switch(23)->state) {
+          it.set_component_text("z24", "Z24 Enabled");
+          it.set_component_font_color("z24", "2239");          
+          } else {
+          it.set_component_text("z24", "Z24 Disbld");
+          it.set_component_font_color("z24", "63488");          
+          }
+
+          }
+
+   
