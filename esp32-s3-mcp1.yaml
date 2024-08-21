@@ -2,8 +2,8 @@ substitutions:
   enc_id: esp32_S3_i2c_devs
 
 esphome:
-  name: "esp32-s3-mcp1"
-  friendly_name: "esp32-s3-mcp1"
+  name: "xxxxxxxxxxxx"
+  friendly_name: "xxxxxxxxxx"
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -17,11 +17,11 @@ logger:
 # Enable Home Assistant API
 api:
   encryption:
-    key: "zUHhuDTgN9+RtZuIdW5520fudaO4LdmGKgy62q8Wcq8="
+    key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 ota:
   - platform: esphome
-    password: "ce80f9eb52be334a50b0f81c797d7f98"
+    password: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 wifi:
   ssid: !secret wifi_ssid
@@ -30,7 +30,7 @@ wifi:
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: "Esp32-C3-Mcp1 Fallback Hotspot"
-    password: "GxHOhXUsJRhs"
+    password: "xxxxxxxxxxxxxxxxxxxxxxxxx"
 
 captive_portal:
 i2c:
